@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey-masters
+  namespace: valkey
+spec:
+  serviceName: "valkey-masters"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: valkey
+  template:
+    metadata:
+      labels:
+        app: valkey
+        appCluster: valkey-masters
+    spec:
+      terminationGracePeriodSeconds: 20
+
+      # Basic pod anti-affinity to spread pods across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - valkey
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+      # Health check / failover monitor container
+      - name: role-master-checker
+        image: valkey/valkey:latest
+        command:
+          - "/bin/bash"
+          - "-c"
+        args:
+          [
+            "while true; do \
+              role=\$(valkey-cli -a \$(awk '{print \$2; exit}' /etc/valkey-password/valkey-password-file.conf) role | awk '{print \$1; exit}'); \
+              if [ \"\$role\" = \"slave\" ]; then \
+                valkey-cli -a \$(awk '{print \$2; exit}' /etc/valkey-password/valkey-password-file.conf) cluster failover; \
+              fi; \
+              sleep 30; \
+            done"
+          ]
+        volumeMounts:
+        - name: valkey-password
+          mountPath: /etc/valkey-password
+          readOnly: true
+
+      # Main Valkey container
+      - name: valkey
+        image: valkey/valkey:latest
+        env:
+        - name: VALKEY_PASSWORD_FILE
+          value: "/etc/valkey-password/valkey-password-file.conf"
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command:
+          - "valkey-server"
+        args:
+          - "/conf/valkey.conf"
+          - "--cluster-announce-ip"
+          - "$(MY_POD_IP)"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "100Mi"
+        ports:
+        - name: valkey
+          containerPort: 6379
+          protocol: "TCP"
+        - name: cluster
+          containerPort: 16379
+          protocol: "TCP"
+        volumeMounts:
+        - name: conf
+          mountPath: /conf
+        - name: data
+          mountPath: /data
+        - name: valkey-password
+          mountPath: /etc/valkey-password
+          readOnly: true
+
+      volumes:
+      - name: conf
+        configMap:
+          name: valkey-config
+          defaultMode: 0755
+      - name: valkey-password
+        secret:
+          secretName: valkey-password
+
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
