@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valkey-config
+  namespace: valkey
+data:
+  valkey.conf:  |+
+    cluster-enabled yes
+    cluster-node-timeout 15000
+    cluster-config-file /data/nodes.conf
+    appendonly yes
+    protected-mode yes
+    dir /data
+    port 6379
+    include /etc/valkey-password/valkey-password-file.conf
