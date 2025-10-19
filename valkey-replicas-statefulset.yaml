@@ -70,7 +70,7 @@ spec:
       volumes:
       - name: conf
         configMap:
-          name: valkey-cluster
+          name: valkey-config
           defaultMode: 0755
       - name: valkey-password
         secret:
