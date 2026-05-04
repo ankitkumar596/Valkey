@@ -1,0 +1,81 @@
+app:
+  name: demo-app
+  version: "0.1.0"
+  description: |
+    Demo YAML file generated for testing.
+    Contains examples of anchors, aliases, sequences, maps and multi-line strings.
+
+metadata: &meta
+  owner: ankit.kumar
+  created: 2026-05-04
+  environment: development
+  tags: &tags
+    - demo
+    - yaml
+    - sample
+
+defaults: &defaults
+  resources:
+    cpu: "500m"
+    memory: "256Mi"
+  replicas: 1
+
+services:
+  web:
+    <<: *defaults
+    image: demo/web:latest
+    ports:
+      - 80
+      - 443
+    env:
+      - name: APP_MODE
+        value: development
+      - name: LOG_LEVEL
+        value: debug
+  worker:
+    <<: *defaults
+    image: demo/worker:latest
+    replicas: 2
+    env:
+      - name: QUEUE
+        value: default
+
+database:
+  type: postgres
+  host: 127.0.0.1
+  port: 5432
+  credentials: &dbcreds
+    user: demo_user
+    password: demo_pass
+  replicas:
+    - host: db-primary.local
+      role: primary
+      credentials: *dbcreds
+    - host: db-replica.local
+      role: replica
+      credentials: *dbcreds
+
+users:
+  - id: 1
+    name: "Alice"
+    roles: *tags
+  - id: 2
+    name: "Bob"
+    roles:
+      - admin
+      - support
+
+schedule:
+  backup: "0 2 * * *"
+  maintenance: "0 3 * * 0"
+
+notes: |
+  - This file is purely illustrative.
+  - Modify values as needed for tests.
+
+scripts:
+  setup: |
+    #!/bin/sh
+    echo "Initializing demo app..."
+    sleep 1
+    echo "Done."
