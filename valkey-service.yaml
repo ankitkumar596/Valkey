@@ -50,3 +50,25 @@ spec:
     appCluster: valkey-replicas
   sessionAffinity: None
   type: ClusterIP
+
+
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-replicas-01
+  namespace: valkey
+spec:
+  clusterIP: None
+  ports:
+  - name: valkey-port
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: valkey
+    appCluster: valkey-replicas
+  sessionAffinity: None
+  type: ClusterIP
